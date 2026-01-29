@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>COVID-19 Rates in the United States (2020)</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+
+    <!-- Mapbox -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.8.1/mapbox-gl.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        h2, h3 {
+            margin: 10px;
+            font-size: 18px;
+        }
+
+        h3 {
+            font-size: 16px;
+        }
+
+        p {
+            margin: 10px;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-style: solid;
+            border-width: 1px;
+            border-color: rgba(0, 0, 0, 0.2);
+            margin-left: 20px;
+            font-family: Arial, sans-serif;
+            overflow: auto;
+            border-radius: 3px;
+        }
+
+        #features {
+            top: 0;
+            height: 120px;
+            margin-top: 20px;
+            width: 260px;
+        }
+
+        #legend {
+            padding: 10px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            line-height: 18px;
+            height: 190px;
+            margin-bottom: 40px;
+            width: 160px;
+            bottom: 0;
+        }
+
+        .legend-key {
+            display: inline-block;
+            border-radius: 20%;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+        }
+
+        .mapboxgl-canvas-container.mapboxgl-interactive,
+        .mapboxgl-ctrl-group button.mapboxgl-ctrl-compass {
+            cursor: unset;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+    <div class="map-overlay" id="features">
+        <h2>COVID-19 Case Rates</h2>
+        <div id="text-description">
+            <p>Hover over a county</p>
+        </div>
+    </div>
+
+    <div class="map-overlay" id="legend"></div>
+
+    <script>
+        mapboxgl.accessToken =
+            'pk.eyJ1IjoibWF0aGZhMDMiLCJhIjoiY21reXBpcWs1MDlncDNkb283NjkzemRjdyJ9.1z-iTe7Q_gIPYRqaFojIlw';
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            center: [-98.5, 39.8],
+            zoom: 3.5,
+            projection: {
+                name: 'albers',
+                parallels: [29.5, 45.5]
+            }
+        });
+
+        async function geojsonFetch() {
+
+            let response = await fetch('us-covid-2020-rates/us-covid-2020-rates.json');
+            let covidRates = await response.json();
+
+            map.on('load', () => {
+
+                map.addSource('covidRates', {
+                    type: 'geojson',
+                    data: covidRates
+                });
+
+                map.addLayer({
+                    id: 'covid-rates-layer',
+                    type: 'fill',
+                    source: 'covidRates',
+                    paint: {
+                        'fill-color': [
+                            'step',
+                            ['get', 'rates'],
+                            '#fee5d9',
+                            10,  '#fcae91',
+                            25,  '#fb6a4a',
+                            50,  '#de2d26',
+                            100, '#a50f15'
+                        ],
+                        'fill-outline-color': '#ffffff',
+                        'fill-opacity': 0.7
+                    }
+                });
+
+                // Hover interaction
+                map.on('mousemove', ({ point }) => {
+                    const features = map.queryRenderedFeatures(point, {
+                        layers: ['covid-rates-layer']
+                    });
+
+                    document.getElementById('text-description').innerHTML = features.length
+                        ? `<h3>${features[0].properties.county}</h3>
+                           <p><strong>${features[0].properties.rates}</strong> cases per 1,000 people</p>`
+                        : '<p>Hover over a county</p>';
+                });
+
+                // Legend
+                const legend = document.getElementById('legend');
+                legend.innerHTML = "<b>Cases per 1,000</b><br><br>";
+
+                const layers = [
+                    '0–9',
+                    '10–24',
+                    '25–49',
+                    '50–99',
+                    '100+'
+                ];
+
+                const colors = [
+                    '#fee5d9',
+                    '#fcae91',
+                    '#fb6a4a',
+                    '#de2d26',
+                    '#a50f15'
+                ];
+
+                layers.forEach((layer, i) => {
+                    const item = document.createElement('div');
+                    const key = document.createElement('span');
+                    key.className = 'legend-key';
+                    key.style.backgroundColor = colors[i];
+
+                    const value = document.createElement('span');
+                    value.innerHTML = layer;
+
+                    item.appendChild(key);
+                    item.appendChild(value);
+                    legend.appendChild(item);
+                });
+            });
+        }
+
+        geojsonFetch();
+    </script>
+
+</body>
+
+</html>
